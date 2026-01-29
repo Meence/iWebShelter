@@ -26,7 +26,10 @@ class ConnectionManager:
         # 存储每个房间每个client_id的最后活动时间 {room_id: {client_id: timestamp}}
         self.last_activity_times: dict[int, dict[str, float]] = {}
         # 安全房间ID列表
-        self.safe_room_ids = config["server"].get("safe_room_ids", [])
+        self.safe_room_ids = config["server"].get("safe_rooms", [])
+        # 确保 safe_room_ids 是可迭代的
+        if not self.safe_room_ids:
+            self.safe_room_ids = []
     
     async def connect(self, websocket: WebSocket, room_id: str):
         # 标准化房间号
