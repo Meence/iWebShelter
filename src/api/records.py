@@ -55,6 +55,9 @@ async def get_records(request: Request, room_id: str, db: Session = Depends(get_
     config = load_config()
     # 检查是否是匿名房间
     anonymous_rooms = config["server"].get("anonymous_rooms", [])
+    # 确保 anonymous_rooms 是可迭代的
+    if not anonymous_rooms:
+        anonymous_rooms = []
     # 确保匿名房间ID是字符串格式
     anonymous_rooms_str = [str(room).zfill(6) if isinstance(room, int) else room for room in anonymous_rooms]
     
@@ -125,6 +128,9 @@ async def send_text(request: Request, content: str = Body(...), client_id: str =
     config = load_config()
     # 检查是否是匿名房间
     anonymous_rooms = config["server"].get("anonymous_rooms", [])
+    # 确保 anonymous_rooms 是可迭代的
+    if not anonymous_rooms:
+        anonymous_rooms = []
     if room_id in anonymous_rooms:
         client_id = "匿名"
     
@@ -280,6 +286,9 @@ async def upload_file(request: Request, file: UploadFile = File(...),
     
     # 检查是否是匿名房间
     anonymous_rooms = config["server"].get("anonymous_rooms", [])
+    # 确保 anonymous_rooms 是可迭代的
+    if not anonymous_rooms:
+        anonymous_rooms = []
     if room_id in anonymous_rooms:
         client_id = "匿名"
     
@@ -373,6 +382,9 @@ async def delete_record(request: Request, record_id: int, db: Session = Depends(
     
     # 检查是否是匿名房间
     anonymous_rooms = config["server"].get("anonymous_rooms", [])
+    # 确保 anonymous_rooms 是可迭代的
+    if not anonymous_rooms:
+        anonymous_rooms = []
     
     # 统一显示client_id
     client_id = record.client_id
