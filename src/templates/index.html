@@ -129,6 +129,15 @@
             background-color: #e0e0e0;
         }
         
+        .ios-btn-danger {
+            background-color: #ff3b30;
+            color: white;
+        }
+        
+        .ios-btn-danger:hover {
+            background-color: #ff2d20;
+        }
+        
         /* 剪贴板卡片样式 */
         .card {
             height: 240px; /* 固定卡片高度 */
@@ -365,7 +374,7 @@
             <!-- 标题行 -->
             <div class="flex justify-between items-center mb-2">
                 <h2 class="text-lg font-semibold text-gray-800">{{ room_id }}号房间</h2>
-                <button id="exitBtn" class="ios-btn ios-btn-secondary">退房</button>
+                <button id="exitBtn" class="ios-btn ios-btn-danger">退房</button>
             </div>
             
             <!-- 自定义文本编辑器 -->
