@@ -317,6 +317,9 @@ def cleanup_old_records():
         
         # 查询超期的记录，排除安全房间
         safe_rooms = config["server"].get("safe_rooms", [])
+        # 确保 safe_rooms 是可迭代的
+        if not safe_rooms:
+            safe_rooms = []
         # 转换为字符串列表以进行数据库查询
         safe_rooms_str = [str(room).zfill(6) if isinstance(room, int) else room for room in safe_rooms]
         old_records = db.query(Record).filter(
@@ -370,8 +373,14 @@ def cleanup_anonymous_room_records():
         cutoff_date = datetime.datetime.now() - datetime.timedelta(hours=24)
         cutoff_timestamp = cutoff_date.strftime("%Y%m%d-%H%M%S.%f")[:-3]
         
+        # 初始化 old_records 变量
+        old_records = []
+        
         # 查询匿名房间中超过24小时的记录
         anonymous_rooms = config["server"].get("anonymous_rooms", [])
+        # 确保 anonymous_rooms 是可迭代的
+        if not anonymous_rooms:
+            anonymous_rooms = []
         # 转换为字符串列表以进行数据库查询
         anonymous_rooms_str = [str(room).zfill(6) if isinstance(room, int) else room for room in anonymous_rooms]
         if anonymous_rooms_str:
