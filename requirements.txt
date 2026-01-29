@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pyyaml
+ruamel.yaml
+python-multipart
+itsdangerous
+jinja2

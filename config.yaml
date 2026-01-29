@@ -1,0 +1,32 @@
+# 服务器配置
+server:
+  project_name: "iWebShelter"  # 项目名称，用于页面显示
+  port: 28099  # 服务运行端口
+  debug_mode: false  # 调试模式开关，true开启，false关闭
+  history_retention_days: 90  # 历史记录保留天数，超过天数的记录会被自动清理
+  log_retention_days: 90  # 日志文件保留天数，超过天数的日志会被自动删除
+  login_rate_limit_min: 60  # 登录请求频率限制，每分钟最多允许的登录尝试次数
+  anonymous_rooms:  # 匿名房间ID列表，在这些房间的发言不显示、不记录用户ID
+    - 888888
+  safe_rooms:  # 安全房间ID列表，这些房间的记录不会被自动清理
+    - 123456
+#  disable_record_deletion_rooms: []  # 关闭历史记录手动删除功能的房间ID列表，为空表示所有房间都开启
+  disable_record_deletion_rooms:
+    - 888888
+  secret_key:  # 用于加密和签名的服务器密钥，初次启动时自动生成
+
+# 数据库配置
+database:
+  path: database.db  # 数据库文件路径，相对于项目根目录
+
+# 图标库配置
+icons:
+  file_icons_path: file_icons  # 文件格式图标库目录路径，相对于项目根目录
+
+# 上传配置
+upload:
+  allowed_extensions: []  # 允许上传的文件扩展名列表，为空表示允许所有扩展名
+  max_file_size: 1024  # 单个文件最大上传大小，单位为MB
+  static_path_prefix: static  # 静态资源访问路径前缀，用于浏览器访问静态文件的URL路径
+  uploads_path: uploads  # 上传文件存储目录路径，相对于项目根目录的实际文件存储位置
+  uploads_path_prefix: uploads  # 上传文件访问路径前缀，用于浏览器访问上传文件的URL路径

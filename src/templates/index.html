@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }} - 房间 {{ room_id }}</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="120x120" href="/apple-touch-icon.png" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JSZip库，用于文件夹压缩 -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- 自定义样式 -->
+    <style>
+        /* 全局box-sizing规则，确保所有元素宽度计算准确 */
+        * {
+            box-sizing: border-box;
+        }
+        
+        /* iOS18 风格基础样式 */
+        body {
+            background-color: #f5f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+        }
+        
+        /* 导航栏样式 */
+        .navbar {
+            background-color: #ffffff;
+            border-bottom: 1px solid #d1d1d6;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            max-width: 1024px;
+            margin: 0 auto;
+            left: 0;
+            right: 0;
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+        
+        /* 按钮样式 */
+        .ios-btn {
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+        }
+        
+        /* 文件上传按钮包装器，确保文件输入能覆盖按钮 */
+        .upload-button-wrapper {
+            position: relative;
+            display: inline-block;
+            overflow: hidden;
+        }
+        /* 移动端和桌面端显示控制 */
+        .mobile-only {
+            display: none;
+        }
+        .desktop-only {
+            display: inline;
+        }
+        @media (max-width: 768px) {
+            .mobile-only {
+                display: inline;
+            }
+            .desktop-only {
+                display: none;
+            }
+        }
+        /* 文件输入框覆盖按钮，确保可点击区域 */
+        .upload-button-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: -1;
+        }
+        
+        /* 确保上传按钮可以被点击 */
+        .upload-button-wrapper button {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .ios-btn-primary {
+            background-color: #007aff;
+            color: white;
+        }
+        
+        .ios-btn-primary:hover {
+            background-color: #0056b3;
+        }
+        
+        .ios-btn-secondary {
+            background-color: #f0f0f0;
+            color: #333333;
+        }
+        
+        .ios-btn-success {
+            background-color: #34c759;
+            color: white;
+        }
+        
+        .ios-btn-success:hover {
+            background-color: #28a745;
+        }
+        
+        .ios-btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+        
+        /* 剪贴板卡片样式 */
+        .card {
+            height: 240px; /* 固定卡片高度 */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* 确保页面布局正确，历史卡片在剪贴板卡片下方滚动 */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* 主内容容器，确保在所有设备上都能正确居中 */
+        div.pb-8.px-4.max-w-4xl.mx-auto {
+            margin: 0 auto;
+            padding: 16px;
+            max-width: 1024px;
+            width: 100%;
+            display: block;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* 剪贴板卡片样式，确保在所有设备上正确显示 */
+        div.card.sticky {
+            position: -webkit-sticky;
+            position: sticky;
+            top: 16px;
+            margin-bottom: 16px;
+            z-index: 10;
+            background-color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            width: 100%;
+            margin-left: 0;
+            margin-right: 0;
+            left: 0;
+            right: 0;
+        }
+        
+        /* 历史记录容器样式，确保在所有设备上正确显示 */
+        #historyContainer {
+            margin-top: 12px; /* 添加空隙，与历史记录卡片之间的间距一致 */
+            width: 100%;
+            height: calc(100vh - 382px); /* 固定高度，减去顶部固定卡片和新增间距 */
+            overflow-y: auto; /* 添加垂直滚动 */
+            -webkit-overflow-scrolling: touch; /* 启用平滑滚动 */
+            /* 隐藏滚动条 */
+            scrollbar-width: none; /* Firefox */
+            position: relative;
+            border-radius: 12px; /* 添加圆角边框，与其他卡片保持一致 */
+            background-color: transparent; /* 背景透明，不影响内部卡片 */
+        }
+        
+        /* 隐藏WebKit浏览器的滚动条 */
+        #historyContainer::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* 响应式调整，确保在不同设备上都能正常工作 */
+        @media (max-width: 640px) {
+            /* 移动端调整卡片样式 */
+            .card {
+                padding: 16px;
+            }
+        }
+        
+        /* 确保历史卡片在滚动时不会影响固定卡片 */
+        .history-card {
+            touch-action: manipulation; /* 优化触摸体验 */
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1); /* 点击高亮 */
+            transform: translateZ(0); /* 硬件加速，减少抖动 */
+        }
+        
+        /* 确保编辑器区域占据足够空间 */
+        #customEditor {
+            flex: 1;
+        }
+        
+        /* 历史记录卡片样式 */
+        .history-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .history-card:hover {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 删除按钮样式 - 右上角圆形灰底× */
+        .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: #f0f0f0;
+            color: #666666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            padding: 0;
+            z-index: 5;
+        }
+        
+        .delete-btn:hover {
+            background-color: #e0e0e0;
+            color: #333333;
+        }
+        
+        /* 文件图标样式，隐藏容器，只显示图标 */
+        .file-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            width: auto;
+            height: auto;
+            border-radius: 0;
+        }
+        
+        /* 设置文件图标大小，确保美观显示 */
+        .file-icon img {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+        }
+        
+        /* 响应式调整，确保在手机端也不显示图标容器 */
+        @media (max-width: 640px) {
+            .file-icon {
+                width: auto;
+                height: auto;
+                aspect-ratio: unset;
+            }
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 640px) {
+            .card {
+                padding: 16px;
+            }
+        }
+
+        /* 透明绿色遮罩反馈样式 */
+        .mask-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 255, 0, 0.2); /* 透明绿色 */
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .mask-overlay.active {
+            opacity: 1;
+        }
+        .mask-overlay .text {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .upload-button-wrapper {
+            position: relative;
+        }
+        
+        /* 按钮活动状态 */
+        .ios-btn:active {
+            transform: scale(0.98);
+        }
+        
+        /* 文本编辑器焦点状态 */
+        #customEditor:focus {
+            border-color: #007aff;
+            box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+        }
+        
+        /* 导航栏宽度调整 */
+        .navbar {
+            width: 100%;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        
+        /* 确保卡片和导航栏宽度对齐 */
+        @media (min-width: 1024px) {
+            .navbar {
+                padding-left: calc((100% - 1024px) / 2);
+                padding-right: calc((100% - 1024px) / 2);
+            }
+        }
+        
+        /* 历史记录卡片文本选择 */
+        .history-card p {
+            user-select: text;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主内容区域 -->
+    <div class="pb-8 px-4 max-w-4xl mx-auto">
+        <!-- 服务器名称容器 -->
+        <div class="relative mb-4 mt-1">
+            <h1 class="text-3xl font-bold text-gray-800 text-center">{{ server_name }}</h1>
+            <a href="https://github.com/Meence" target="_blank" class="text-gray-500 text-sm absolute right-0 bottom-0">@Meence</a>
+        </div>
+        <!-- 同步卡片 - 固定在顶部 -->
+        <div class="card sticky p-3 mb-6 top-2 z-10">
+            <!-- 标题行 -->
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-lg font-semibold text-gray-800">{{ room_id }}号房间</h2>
+                <button id="exitBtn" class="ios-btn ios-btn-secondary">退房</button>
+            </div>
+            
+            <!-- 自定义文本编辑器 -->
+            <div class="mb-2 flex-1 flex">
+                <textarea id="customEditor" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none flex-1" placeholder="输入内容..."></textarea>
+            </div>
+            
+            <!-- 操作按钮行 -->
+            <div class="flex justify-between gap-3">
+                <!-- 移动端优化的文件上传按钮 -->
+                <div class="upload-button-wrapper">
+                    <button type="button" id="uploadTrigger" class="ios-btn ios-btn-secondary">
+                        <span>📎文件上传</span>
+                    </button>
+                    <input type="file" id="fileInput" multiple class="absolute inset-0 opacity-0 cursor-pointer">
+                    <input type="file" id="folderInput" multiple webkitdirectory directory class="absolute inset-0 opacity-0 cursor-pointer">
+                </div>
+                <div class="flex gap-3">
+                    <button id="clearBtn" class="ios-btn ios-btn-secondary">清除</button>
+                    <button id="sendBtn" class="ios-btn ios-btn-primary">发送</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 空白间隔容器，与历史记录卡片间的高度一致 -->
+        <div class="h-0.75"></div>
+        
+        <!-- 自定义上传类型选择对话框 -->
+        <div id="uploadTypeDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">请选择您要上传的类型：</h3>
+                <!-- <p class="text-gray-600 mb-6">请选择您要上传的类型：</p>  -->
+                <div class="flex justify-end gap-3">
+                    <button id="cancelUploadBtn" class="ios-btn ios-btn-secondary">取  消</button>
+                    <button id="folderUploadBtn" class="ios-btn ios-btn-primary">文件夹</button>
+                    <button id="fileUploadBtn" class="ios-btn ios-btn-success">文  件</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史记录卡片容器 -->
+        <div id="historyContainer"></div>
+    </div>
+    
+    <script>
+        // 房间号和静态路径前缀
+        const roomId = {{ room_id }};
+        const staticPrefix = '{{ static_prefix }}';
+        const uploadsPrefix = '{{ uploads_prefix }}';
+        
+        // 全局变量，存储配置信息
+        let configInfo = {
+            max_file_size_mb: 50,  // 默认50MB
+            max_file_size_bytes: 50 * 1024 * 1024
+        };
+        
+        // WebSocket连接实例
+        let ws = null;
+        
+        // 获取配置信息
+        async function fetchConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const data = await response.json();
+                    configInfo = data;
+                    console.log('配置信息获取成功:', configInfo);
+                }
+            } catch (error) {
+                console.error('获取配置信息失败:', error);
+            }
+        }
+        
+        // 为编辑器添加事件监听器
+        function setupEditorEventListeners() {
+            // 获取textarea元素
+            const editor = document.getElementById('customEditor');
+            if (!editor) {
+                console.error('编辑器元素未找到');
+                return;
+            }
+            
+            console.log('设置编辑器事件监听器');
+            
+            // 直接为textarea添加contextmenu事件处理
+            editor.addEventListener('contextmenu', async function(e) {
+                console.log('contextmenu事件触发');
+                
+                try {
+                    // 先聚焦编辑器
+                    editor.focus();
+                    console.log('编辑器已聚焦');
+                    
+                    // 尝试使用最直接的方法获取剪贴板内容
+                    let clipboardText;
+                    let pasteSuccessful = false;
+                    
+                    // 首先尝试使用Clipboard API
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        try {
+                            console.log('尝试使用Clipboard API读取剪贴板');
+                            clipboardText = await navigator.clipboard.readText();
+                            console.log('使用Clipboard API成功获取剪贴板内容:', clipboardText);
+                            pasteSuccessful = true;
+                        } catch (error) {
+                            console.error('使用Clipboard API读取剪贴板失败:', error);
+                            clipboardText = null;
+                        }
+                    } 
+                    
+                    // 如果Clipboard API失败或不可用，尝试使用document.execCommand
+                    if (!clipboardText) {
+                        console.log('尝试使用document.execCommand获取剪贴板内容');
+                        try {
+                            // 直接使用document.execCommand('paste')插入内容
+                            // 这会自动处理浏览器的剪贴板访问权限
+                            const result = document.execCommand('paste');
+                            console.log('document.execCommand(paste)结果:', result);
+                            pasteSuccessful = result;
+                        } catch (error) {
+                            console.error('使用document.execCommand读取剪贴板失败:', error);
+                        }
+                    } else if (clipboardText && clipboardText.trim()) {
+                        console.log('最终获取到的剪贴板内容:', clipboardText);
+                        
+                        // 处理文本插入到textarea中
+                        try {
+                            // 获取当前选择范围
+                            const startPos = editor.selectionStart;
+                            const endPos = editor.selectionEnd;
+                            console.log('当前选择范围:', startPos, endPos);
+                            
+                            // 保存当前滚动位置
+                            const scrollTop = editor.scrollTop;
+                            
+                            // 替换选中内容或在光标位置插入
+                            const textBefore = editor.value.substring(0, startPos);
+                            const textAfter = editor.value.substring(endPos);
+                            editor.value = textBefore + clipboardText + textAfter;
+                            
+                            // 恢复滚动位置
+                            editor.scrollTop = scrollTop;
+                            
+                            // 设置新的光标位置
+                            const newCursorPos = startPos + clipboardText.length;
+                            editor.setSelection(newCursorPos, newCursorPos);
+                            console.log('光标已移动到插入内容末尾:', newCursorPos);
+                            pasteSuccessful = true;
+                        } catch (error) {
+                            console.error('插入内容失败:', error);
+                        }
+                    }
+                    
+                    if (pasteSuccessful) {
+                        // 只在成功粘贴后阻止默认菜单
+                        e.preventDefault();
+                        console.log('右键粘贴成功');
+                    } else {
+                        console.log('右键粘贴失败，显示默认菜单');
+                        // 允许默认右键菜单显示
+                    }
+                } catch (error) {
+                    console.error('右键粘贴功能执行失败:', error);
+                    // 允许默认右键菜单显示
+                }
+            });
+            
+            // 为编辑器添加长按粘贴功能（移动端）
+            let longPressTimer;
+            editor.addEventListener('touchstart', () => {
+                // 清除之前的定时器
+                clearTimeout(longPressTimer);
+                // 设置长按定时器，1秒后触发粘贴
+                longPressTimer = setTimeout(async () => {
+                    try {
+                        // 先聚焦编辑器
+                        editor.focus();
+                        
+                        // 尝试使用Clipboard API获取剪贴板内容
+                        let clipboardText;
+                        
+                        // 首先尝试使用Clipboard API
+                        if (navigator.clipboard && navigator.clipboard.readText) {
+                            try {
+                                clipboardText = await navigator.clipboard.readText();
+                            } catch (error) {
+                                console.error('使用Clipboard API读取剪贴板失败:', error);
+                                clipboardText = null;
+                            }
+                        } 
+                        
+                        // 如果成功获取到剪贴板内容，就粘贴到编辑器
+                        if (clipboardText && clipboardText.trim()) {
+                            // 获取当前选择范围
+                            const startPos = editor.selectionStart;
+                            const endPos = editor.selectionEnd;
+                            
+                            // 保存当前滚动位置
+                            const scrollTop = editor.scrollTop;
+                            
+                            // 替换选中内容或在光标位置插入
+                            const textBefore = editor.value.substring(0, startPos);
+                            const textAfter = editor.value.substring(endPos);
+                            editor.value = textBefore + clipboardText + textAfter;
+                            
+                            // 恢复滚动位置
+                            editor.scrollTop = scrollTop;
+                            
+                            // 设置新的光标位置
+                            const newCursorPos = startPos + clipboardText.length;
+                            editor.setSelection(newCursorPos, newCursorPos);
+                        }
+                    } catch (error) {
+                        console.error('长按粘贴失败:', error);
+                    }
+                }, 1000);
+            });
+            
+            // 清除长按定时器
+            editor.addEventListener('touchend', () => {
+                clearTimeout(longPressTimer);
+            });
+            
+            editor.addEventListener('touchmove', () => {
+                clearTimeout(longPressTimer);
+            });
+            
+            console.log('右键事件监听器设置完成');
+        }
+        
+        // 全局变量，控制是否启用删除功能
+        let enableRecordDeletion = true;
+        
+        // 获取历史记录
+        async function fetchHistory() {
+            console.log('fetchHistory called with roomId:', roomId);
+            try {
+                console.log('Fetching from URL:', `/api/records/${roomId}`);
+                const response = await fetch(`/api/records/${roomId}`);
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+                if (data.status === 'success') {
+                    console.log('Rendering', data.records.length, 'records');
+                    // 获取是否启用删除功能的配置
+                    enableRecordDeletion = data.enable_record_deletion !== undefined ? data.enable_record_deletion : true;
+                    renderHistory(data.records);
+                } else {
+                    console.error('API returned error:', data);
+                }
+            } catch (error) {
+                console.error('获取历史记录失败:', error);
+            }
+        }
+        
+        // 渲染历史记录
+        function renderHistory(records) {
+            console.log('renderHistory called with', records.length, 'records');
+            const container = document.getElementById('historyContainer');
+            console.log('Container found:', !!container);
+            container.innerHTML = '';
+            
+            records.forEach(record => {
+                const card = createHistoryCard(record);
+                container.appendChild(card);
+            });
+            console.log('Finished rendering records');
+        }
+        
+        // HTML转纯文本函数
+        function htmlToPlainText(html) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            return tempDiv.textContent || tempDiv.innerText || '';
+        }
+        
+        // 根据用户ID获取对应的哺乳动物emoji
+        function getMammalEmoji(clientId) {
+            // 哺乳动物emoji列表
+            const mammals = [
+                '🐂', '🐃', '🐄', '🐅', '🐆', '🐇', '🐈', '🐈‍⬛', '🐎', '🐏',
+                '🐐', '🐑', '🐒', '🐕', '🐕‍🦺', '🐖', '🐗', '🐘', '🐨', '🐩',
+                '🐪', '🐫', '🐭', '🐮', '🐯', '🐰', '🐱', '🐴', '🐵', '🐶',
+                '🐷', '🐹', '🐺', '🐻', '🐻‍❄️', '🐼', '🐽', '🐾', '🐿️', '🦁',
+                '🦄', '🦇', '🦊', '🦌', '🦍', '🦏', '🦒', '🦓', '🦔', '🦘',
+                '🦙', '🦛', '🦝', '🦡', '🦣', '🦥', '🦦', '🦧', '🦨', '🦫',
+                '🦬', '🦮', '🫎', '🫏'
+            ];
+            
+            // 如果是匿名用户，返回一个默认emoji
+            if (clientId === '匿名' || !clientId) {
+                return '👤';
+            }
+            
+            // 计算用户ID的哈希值
+            let hash = 0;
+            for (let i = 0; i < clientId.length; i++) {
+                const char = clientId.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // 转换为32位整数
+            }
+            
+            // 使用哈希值选择emoji
+            const index = Math.abs(hash) % mammals.length;
+            return mammals[index];
+        }
+        
+        // 创建历史记录卡片
+        function createHistoryCard(record) {
+            const card = document.createElement('div');
+            card.className = 'history-card';
+            card.dataset.id = record.id;
+            
+            let contentHtml = '';
+            if (record.type === 'text') {
+                // 只显示索引号的第7-23位数字
+                const displayIndex = record.record_index.substring(6, 23);
+                // 只显示用户ID的最后12位内容，并将最后2位加粗
+                const fullClientId = record.client_id ? record.client_id.slice(-12) : 'N/A';
+                let displayClientId;
+                if (fullClientId.length > 2) {
+                    const mainPart = fullClientId.slice(0, -2);
+                    const boldPart = fullClientId.slice(-2);
+                    displayClientId = `${mainPart}<strong>${boldPart}</strong>`;
+                } else {
+                    displayClientId = `<strong>${fullClientId}</strong>`;
+                }
+                const emoji = getMammalEmoji(record.client_id);
+                contentHtml = `
+                    <div class="text-xs text-gray-400 mb-1">#${displayIndex} | 用户ID: ${displayClientId} ${emoji}</div>
+                    <div class="text-sm text-gray-800 whitespace-pre-line" style="max-height: calc(1rem * 1.5 * 4); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none;">${record.content}<style> .history-card div[style*="overflow-y: auto"]::-webkit-scrollbar { display: none; }</style></div>
+                `;
+            } else {
+                // 文件类型 - 首先尝试从配置的文件格式图标库目录获取图标
+                // 确保使用正确的文件格式图标库路径
+                const iconUrl = `/file_icons/${record.file_extension || 'files'}.png`;
+                // 只显示索引号的第7-23位数字
+                const displayIndex = record.record_index.substring(6, 23);
+                // 只显示用户ID的最后12位内容，并将最后2位加粗
+                const fullClientId = record.client_id ? record.client_id.slice(-12) : 'N/A';
+                let displayClientId;
+                if (fullClientId.length > 2) {
+                    const mainPart = fullClientId.slice(0, -2);
+                    const boldPart = fullClientId.slice(-2);
+                    displayClientId = `${mainPart}<strong>${boldPart}</strong>`;
+                } else {
+                    displayClientId = `<strong>${fullClientId}</strong>`;
+                }
+                const emoji = getMammalEmoji(record.client_id);
+                contentHtml = `
+                    <div class="text-xs text-gray-400 mb-1">#${displayIndex} | 用户ID: ${displayClientId} ${emoji}</div>
+                    <div class="flex items-center gap-3">
+                        <div class="file-icon">
+                            <img src="${iconUrl}" alt="File Icon" onerror="this.onerror=null; this.src='/file_icons/${record.file_extension || 'files'}.png'; this.onerror=null; this.src='/file_icons/files.png'"></div>
+                            <div style="flex: 1;">
+                            <div class="text-sm font-medium text-gray-800 break-words">${record.original_filename}</div>
+                            <div class="text-xs text-gray-500">${formatFileSize(record.file_size)}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 根据配置决定是否显示删除按钮
+            const deleteButtonHtml = enableRecordDeletion ? `
+                <button class="delete-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            ` : '';
+            
+            card.innerHTML = `
+                ${contentHtml}
+                ${deleteButtonHtml}
+                <div class="mask-overlay">
+                    <div class="text">已复制到剪贴板</div>
+                </div>
+            `;
+            
+            // 防抖动变量
+            let lastCopyTime = 0;
+            const DEBOUNCE_THRESHOLD = 500; // 500ms内只允许一次复制/下载
+            
+            // 通用的复制处理函数
+            const handleCopy = () => {
+                // 防抖动处理
+                const now = Date.now();
+                if (now - lastCopyTime < DEBOUNCE_THRESHOLD) {
+                    return;
+                }
+                lastCopyTime = now;
+                
+                if (record.type === 'text') {
+                    // 复制文本到剪贴板
+                    const plainText = htmlToPlainText(record.content);
+                    
+                    // 尝试使用Clipboard API
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(plainText).then(() => {
+                            // 显示遮罩反馈
+                            const mask = card.querySelector('.mask-overlay');
+                            mask.classList.add('active');
+                            setTimeout(() => {
+                                mask.classList.remove('active');
+                            }, 1500); // 1.5秒后隐藏
+                        }).catch(err => {
+                            console.error('使用Clipboard API复制失败:', err);
+                            // 尝试降级方案
+                            fallbackCopyTextToClipboard(plainText, card);
+                        });
+                    } else {
+                        // 降级方案
+                        fallbackCopyTextToClipboard(plainText, card);
+                    }
+                } else {
+                    // 下载文件
+                    const link = document.createElement('a');
+                    link.href = `/api/download/${record.id}`;
+                    link.download = record.original_filename; // 设置下载的文件名
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            };
+            
+            // 简化的卡片点击事件（复制或下载）
+            card.addEventListener('click', (e) => {
+                // 排除点击删除按钮的情况
+                if (e.target.closest('.delete-btn')) return;
+                
+                handleCopy();
+            });
+            
+            // 移除所有触摸事件监听器，避免与滚动冲突
+            // 现代浏览器会自动将触摸转换为点击事件，无需额外处理
+            
+            // 删除按钮点击事件（仅当启用删除功能时添加）
+            if (enableRecordDeletion) {
+                card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    // 阻止事件冒泡到卡片点击事件
+                    e.stopPropagation();
+                    deleteRecord(record.id);
+                });
+            }
+            
+            return card;
+        }
+        
+        // 降级复制方案，用于不支持Clipboard API的浏览器
+        function fallbackCopyTextToClipboard(text, cardElement) {
+            // 创建临时textarea元素
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            
+            // 确保元素不可见，但能被选中
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            
+            // 选中并复制
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                // 执行复制命令
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    // 显示遮罩反馈
+                    const mask = cardElement.querySelector('.mask-overlay');
+                    mask.classList.add('active');
+                    setTimeout(() => {
+                        mask.classList.remove('active');
+                    }, 1500); // 1.5秒后隐藏
+                } else {
+                    console.error('使用execCommand复制失败');
+                }
+            } catch (err) {
+                console.error('使用execCommand复制失败:', err);
+            }
+            
+            // 清理临时元素
+            document.body.removeChild(textArea);
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(sizeInBytes) {
+            if (sizeInBytes < 1024) {
+                return `${sizeInBytes} B`;
+            } else if (sizeInBytes < 1024 * 1024) {
+                return `${(sizeInBytes / 1024).toFixed(2)} KB`;
+            } else {
+                return `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`;
+            }
+        }
+        
+        // 获取或生成client_id
+        function getClientId() {
+            let clientId = localStorage.getItem('client_id');
+            if (!clientId) {
+                // 生成一个UUID，兼容不支持crypto.randomUUID()的浏览器
+                if (crypto && crypto.randomUUID) {
+                    clientId = crypto.randomUUID();
+                } else {
+                    // 降级方案：使用时间戳和随机数生成UUID
+                    clientId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                        const r = Math.random() * 16 | 0;
+                        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                    });
+                }
+                localStorage.setItem('client_id', clientId);
+            }
+            return clientId;
+        }
+
+        async function sendText() {
+            // 获取自定义编辑器的内容
+            const editor = document.getElementById('customEditor');
+            const content = editor.value;
+            if (!content.trim()) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/send_text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ room_id: roomId, content: content, client_id: getClientId() })
+                });
+                
+                if (response.ok) {
+                    // 清空编辑器
+                    editor.value = '';
+                    // 刷新历史记录
+                    fetchHistory();
+                    
+                    // 发送WebSocket消息通知其他客户端
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        // 解析响应数据，获取新创建的记录
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            ws.send(JSON.stringify({
+                                type: 'text_update',
+                                record: data.record
+                            }));
+                        }
+                    } else {
+                        console.warn('WebSocket连接不可用，无法通知其他客户端');
+                    }
+                }
+            } catch (error) {
+                console.error('发送文本失败:', error);
+            }
+        }
+        
+        // 文件夹压缩函数
+        async function zipFolder(files) {
+            const zip = new JSZip();
+            let folderName = null;
+            let processedFiles = 0;
+            const totalFiles = files.length;
+            
+            // 处理文件列表
+            for (const file of files) {
+                if (!folderName && file.webkitRelativePath) {
+                    // 获取文件夹名称
+                    folderName = file.webkitRelativePath.split('/')[0];
+                }
+                
+                // 将文件添加到ZIP中
+                zip.file(file.webkitRelativePath || file.name, file);
+                
+                // 更新进度
+                processedFiles++;
+                const progress = Math.round((processedFiles / totalFiles) * 100);
+                showFeedback(`正在压缩文件夹: ${progress}%`);
+            }
+            
+            // 生成ZIP文件
+            showFeedback('正在生成ZIP文件...');
+            const zipBlob = await zip.generateAsync({ 
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+            
+            return {
+                zipBlob,
+                folderName: folderName || 'folder'
+            };
+        }
+        
+        // 上传单个文件
+        async function uploadSingleFile(file) {
+            // 检查文件大小
+            if (file.size > configInfo.max_file_size_bytes) {
+                showFeedback(`文件大小超过限制（最大${configInfo.max_file_size_mb}MB）`);
+                return false;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('room_id', roomId);
+            formData.append('client_id', getClientId());
+            
+            try {
+                // 显示上传中反馈，包含文件名
+                showFeedback(`正在上传: ${file.name}`);
+                
+                // 发送fetch请求到后端API，添加适当的headers
+                const response = await fetch('/api/upload_file', {
+                    method: 'POST',
+                    // 不设置Content-Type，让浏览器自动处理
+                    headers: {
+                        // 添加X-Requested-With头，标识为AJAX请求
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+                
+                // 检查响应状态
+                if (!response.ok) {
+                    throw new Error('服务器响应失败: ' + response.status);
+                }
+                
+                // 解析响应数据
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    console.log(`文件 ${file.name} 上传成功`);
+                    
+                    // 发送WebSocket消息通知其他客户端
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'file_upload',
+                            record: data.record
+                        }));
+                    } else {
+                        console.warn('WebSocket连接不可用，无法通知其他客户端');
+                    }
+                    
+                    return true;
+                } else {
+                    console.error(`上传失败，服务器返回错误: ${data.message || '未知错误'}`);
+                    return false;
+                }
+            } catch (error) {
+                console.error(`文件 ${file.name} 上传失败:`, error);
+                return false;
+            }
+        }
+        
+        // 上传多个文件
+        async function uploadFile(files) {
+            if (files.length === 0) {
+                console.warn('没有选择文件');
+                return;
+            }
+            
+            // 显示文件总数
+            showFeedback(`准备上传 ${files.length} 个文件...`);
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            // 逐个上传文件
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const result = await uploadSingleFile(file);
+                
+                if (result) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            }
+            
+            // 显示上传结果
+            let finalMessage = '';
+            if (failCount === 0) {
+                finalMessage = `${successCount} 个文件全部上传完成`;
+            } else {
+                finalMessage = `上传结果: 成功 ${successCount} 个，失败 ${failCount} 个`;
+            }
+            
+            showFeedback(finalMessage);
+            
+            // 无论成功失败都刷新历史记录，确保已上传的文件显示出来
+            fetchHistory();
+        }
+        
+        // 显示遮罩反馈函数
+        function showFeedback(message) {
+            const uploadWrapper = document.querySelector('.upload-button-wrapper');
+            if (!uploadWrapper) return;
+            
+            // 查找或创建遮罩层
+            let mask = uploadWrapper.querySelector('.mask-overlay');
+            if (!mask) {
+                mask = document.createElement('div');
+                mask.className = 'mask-overlay';
+                const text = document.createElement('div');
+                text.className = 'text';
+                mask.appendChild(text);
+                uploadWrapper.appendChild(mask);
+            }
+            
+            // 更新消息文本
+            const text = mask.querySelector('.text');
+            if (text) {
+                text.textContent = message;
+            }
+            
+            // 显示遮罩
+            mask.classList.add('active');
+            
+            // 清除之前的定时器
+            clearTimeout(mask.timeoutId);
+            
+            // 只有非'上传中'消息才会自动隐藏
+            // '上传中'消息将保持显示直到上传完成，由后续的'success'或'error'状态覆盖
+            if (message !== '上传中') {
+                mask.timeoutId = setTimeout(() => {
+                    mask.classList.remove('active');
+                }, 1500);
+            }
+            // 记录当前消息状态
+            mask.currentMessage = message;
+        }
+        
+        // 删除记录
+        async function deleteRecord(recordId) {
+            console.log(`开始删除记录，ID: ${recordId}`);
+            try {
+                console.log(`发送删除请求到服务器: /api/delete_record/${recordId}`);
+                const response = await fetch(`/api/delete_record/${recordId}`, {
+                    method: 'DELETE'
+                });
+                
+                console.log(`删除请求响应状态: ${response.status}`);
+                const data = await response.json();
+                console.log(`删除请求响应数据:`, data);
+                
+                if (data.status === 'success') {
+                    console.log(`删除请求成功，记录ID: ${recordId}`);
+                    // 发送WebSocket消息
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        console.log(`WebSocket连接可用，准备发送删除消息`);
+                        const wsMessage = JSON.stringify({
+                            type: 'record_delete',
+                            record_id: recordId
+                        });
+                        console.log(`发送WebSocket消息: ${wsMessage}`);
+                        ws.send(wsMessage);
+                        console.log(`WebSocket消息发送完成`);
+                    } else {
+                        console.warn('WebSocket连接不可用，无法通知其他客户端删除操作');
+                    }
+                    
+                    // 立即刷新当前页面的历史记录，确保删除端也能看到更新
+                    console.log('立即刷新当前页面的历史记录');
+                    fetchHistory();
+                }
+            } catch (error) {
+                console.error('删除记录失败:', error);
+            }
+        }
+        
+        // 监听页面可见性变化，当页面切回前台时主动同步数据
+        function setupVisibilityListener() {
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    console.log('页面切回前台，正在同步最新数据...');
+                    // 立即重新获取历史记录，确保数据同步
+                    fetchHistory();
+                    
+                    // 检查WebSocket连接状态，如果已关闭则重新连接
+                    if (ws && (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING)) {
+                        console.log('WebSocket连接已关闭，重新连接...');
+                        initWebSocket();
+                    }
+                }
+            });
+        }
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', () => {
+            // 直接使用textarea元素，无需初始化Quill编辑器
+            console.log('页面加载完成，使用textarea编辑器');
+            
+            // 获取配置信息
+            fetchConfig();
+            
+            // 设置编辑器事件监听器
+            setupEditorEventListeners();
+            
+            // 设置页面可见性监听器
+            setupVisibilityListener();
+            
+            // 初始化WebSocket连接（支持自动重连）
+            function initWebSocket() {
+                // 如果已存在WebSocket连接，先关闭
+                if (ws && ws.readyState !== WebSocket.CLOSED) {
+                    ws.close();
+                }
+                
+                // 根据当前协议选择ws或wss
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                // 确保房间号格式为6位数字
+                const formattedRoomId = roomId.toString().padStart(6, '0');
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws/${formattedRoomId}`);
+                
+                ws.onopen = () => {
+                    console.log('WebSocket连接已建立');
+                    // 发送client_id和room_id到服务器
+                    ws.send(JSON.stringify({
+                        type: 'register_client',
+                        client_id: getClientId(),
+                        room_id: roomId
+                    }));
+                };
+                
+                ws.onmessage = (event) => {
+                    console.log('WebSocket收到消息:', event.data);
+                    const data = JSON.parse(event.data);
+                    console.log('解析后的WebSocket消息:', data);
+                    // 处理收到的消息
+                    if (data.type === 'session_timeout') {
+                        // 会话超时，跳转到登录页
+                        alert(data.message || '会话已超时，请重新登录');
+                        window.location.href = '/login';
+                    } else if (data.type === 'text_update' || data.type === 'file_upload') {
+                        console.log('收到更新类型消息，刷新历史记录');
+                        // 刷新历史记录
+                        fetchHistory();
+                    } else if (data.type === 'record_delete') {
+                        console.log(`收到删除记录消息，记录ID: ${data.record_id}，正在刷新历史记录`);
+                        // 刷新历史记录
+                        fetchHistory();
+                    } else {
+                        console.log('收到未处理类型的消息:', data.type);
+                    }
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket连接已关闭，将在5秒后尝试重连');
+                    setTimeout(initWebSocket, 5000);
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket错误:', error);
+                };
+            }
+            initWebSocket();
+            
+            // 直接绑定所有按钮事件，不使用复杂封装
+            const sendBtn = document.getElementById('sendBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const exitBtn = document.getElementById('exitBtn');
+            const uploadTrigger = document.getElementById('uploadTrigger');
+            const fileInput = document.getElementById('fileInput');
+            const folderInput = document.getElementById('folderInput');
+            
+            // 发送文本
+            sendBtn.onclick = sendText;
+            
+            // 清除编辑器
+            clearBtn.onclick = () => {
+                const editor = document.getElementById('customEditor');
+                if (editor) {
+                    editor.value = '';
+                }
+            };
+            
+            // 退出房间
+            exitBtn.onclick = () => {
+                window.location.href = '/login';
+            };
+            
+            // 触发文件选择
+            uploadTrigger.onclick = () => {
+                // 显示自定义上传类型选择对话框
+                document.getElementById('uploadTypeDialog').classList.remove('hidden');
+            };
+            
+            // 自定义对话框按钮事件
+            document.getElementById('cancelUploadBtn').onclick = () => {
+                // 关闭对话框
+                document.getElementById('uploadTypeDialog').classList.add('hidden');
+            };
+            
+            document.getElementById('fileUploadBtn').onclick = () => {
+                // 选择文件
+                fileInput.click();
+                // 关闭对话框
+                document.getElementById('uploadTypeDialog').classList.add('hidden');
+            };
+            
+            document.getElementById('folderUploadBtn').onclick = () => {
+                // 选择文件夹
+                folderInput.click();
+                // 关闭对话框
+                document.getElementById('uploadTypeDialog').classList.add('hidden');
+            };
+            
+            // 文件选择变化事件
+            fileInput.onchange = () => {
+                if (fileInput.files.length > 0) {
+                    // 复制FileList到数组，因为FileList是类数组对象，且在input被清空后会丢失
+                    const filesToUpload = Array.from(fileInput.files);
+                    // 单个或多个文件上传，保持原有逻辑
+                    uploadFile(filesToUpload);
+                    // 清空文件输入，允许重复选择同一文件
+                    fileInput.value = '';
+                }
+            };
+            
+            // 文件夹选择变化事件
+            folderInput.onchange = async () => {
+                if (folderInput.files.length > 0) {
+                    // 复制FileList到数组，因为FileList是类数组对象，且在input被清空后会丢失
+                    const filesToUpload = Array.from(folderInput.files);
+                    
+                    // 计算文件夹总大小
+                    let totalSize = 0;
+                    for (const file of filesToUpload) {
+                        totalSize += file.size;
+                    }
+                    
+                    // 检查文件夹大小是否超过限制
+                    if (totalSize > configInfo.max_file_size_bytes) {
+                        showFeedback(`文件夹大小超过限制（最大${configInfo.max_file_size_mb}MB）`);
+                        // 清空文件输入，允许重复选择同一文件
+                        folderInput.value = '';
+                        return;
+                    }
+                    
+                    // 显示压缩中提示
+                    showFeedback('正在压缩文件夹...');
+                    
+                    try {
+                        // 压缩文件夹
+                        const { zipBlob, folderName } = await zipFolder(filesToUpload);
+                        
+                        // 创建一个新的File对象
+                        const zipFile = new File([zipBlob], `${folderName}.zip`, { type: 'application/zip' });
+                        
+                        // 上传ZIP文件，复用现有函数
+                        await uploadFile([zipFile]);
+                    } catch (error) {
+                        console.error('文件夹压缩失败:', error);
+                        showFeedback('文件夹压缩失败');
+                    }
+                    
+                    // 清空文件输入，允许重复选择同一文件
+                    folderInput.value = '';
+                }
+            };
+            
+            // 获取历史记录
+            fetchHistory();
+        });
+    </script>
+</body>
+</html>
