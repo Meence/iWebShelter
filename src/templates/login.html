@@ -128,9 +128,13 @@
     <!-- 标题 -->
     <h1 class="text-3xl font-bold text-gray-800" style="margin-top: 0; margin-bottom: 0.5rem;">{{ project_name }}</h1>
     <!-- 匿名房间提示 -->
-    {% if anonymous_rooms %}
-    <p class="text-sm text-gray-500 mb-2" style="line-height: 0.7;">匿名房间：{{ anonymous_rooms[0] }}</p>
-    {% endif %}
+    <p class="text-sm text-gray-500 mb-2" style="line-height: 0.7;">
+        {% if anonymous_rooms %}
+        匿名房间：{{ anonymous_rooms[0] }}
+        {% else %}
+        
+        {% endif %}
+    </p>
     
     <!-- 历史记录保存时间提醒 -->
     <p class="text-sm text-red-500 mb-2" style="line-height: 0.7;">提醒：除安全房间外，历史记录保存时间为 {{ history_retention_days }} 天</p>
